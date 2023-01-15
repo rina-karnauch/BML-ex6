@@ -131,17 +131,17 @@ if __name__ == '__main__':
     plt.legend()
     plt.show()
 
-    # # ---------------------- question 3
-    # # load the images to use for classification
-    # N = 1000
-    # ims, labs = load_dogs_vs_frogs(N)
-    # # define BLR model that should be used to fit the data
-    # mdl = BayesianLinearRegression(sample_noise=0.001, kernel_function=poly_kernel(2))
-    # # use Gibbs sampling to sample model and outliers
-    # samp, outliers = outlier_regression(mdl, ims, labs, p_out=0.01, T=50, mu_o=0, sig_o=.5)
-    # # plot the outliers
-    # plot_ims(ims[outliers], title='outliers')
-    #
+    # ---------------------- question 3
+    # load the images to use for classification
+    N = 1000
+    ims, labs = load_dogs_vs_frogs(N)
+    # define BLR model that should be used to fit the data
+    mdl = BayesianLinearRegression(sample_noise=0.001, kernel_function=poly_kernel(2))
+    # use Gibbs sampling to sample model and outliers
+    samp, outliers = outlier_regression(mdl, ims, labs, p_out=0.01, T=50, mu_o=0, sig_o=.5)
+    # plot the outliers
+    plot_ims(ims[outliers], title='outliers')
+
     # # ------------------------------------------------------ section 3 - Bayesian GMM
     # # ---------------------- question 5
     # # load 2D GMM data
