@@ -106,8 +106,9 @@ class BayesianGMM:
         """
 
         # ----
-        dist = np.sum(X*X, axis=1)[None, :] - 2*self._mu_ks @ X.T + np.sum(self._mu_ks*self._mu_ks, axis=1)[:, None]
-        log_likelihood_1 = -.5 * (self._d * np.log(2*np.pi*self._beta) + (self._inv_beta) * dist)
+        dist = np.sum(X * X, axis=1)[None, :] - 2 * self._mu_ks @ X.T + np.sum(self._mu_ks * self._mu_ks, axis=1)[:,
+                                                                        None]
+        log_likelihood_1 = -.5 * (self._d * np.log(2 * np.pi * self._beta) + (self._inv_beta) * dist)
         log_likelihood = np.log(self._pi)[:, None] + log_likelihood_1
         # ----
         # if self._learn_cov: log_likelihood = np.array( [multivariate_normal.logpdf(X, mean=self._mu_ks[v_k],
@@ -143,7 +144,7 @@ class BayesianGMM:
     #         mu = np.array([mu[i] / denominator_arr[i] for i in range(self._k)])
     #     return np.array([np.random.multivariate_normal(mu[v_k], cov[v_k]) for v_k in range(self._k)])
 
-    def get_dist(self,X, mu, indices):
+    def get_dist(self, X, mu, indices):
         x_indices = X[indices]
         if np.size(x_indices) == 0:
             return np.zeros(shape=self._I_d.shape)
@@ -151,6 +152,7 @@ class BayesianGMM:
             sub = x_indices - mu[None, :]
             s = sub.T @ sub
             return s
+
     def gibbs_fit(self, X: np.ndarray, T: int) -> 'BayesianGMM':
         """
         Fits the Bayesian GMM model using a Gibbs sampling algorithm
@@ -160,6 +162,7 @@ class BayesianGMM:
         """
         self._N = X.shape[0]
         for t in range(T):
+            print(f't:{t}')
             self._L = self.log_likelihood(X)
             self._q = np.exp(self._L - logsumexp(self._L, axis=0)[None, :]).T
             self._z_t = np.random.default_rng().multinomial(1, self._q, size=self._N).argmax(axis=-1)
@@ -171,9 +174,14 @@ class BayesianGMM:
                 if self._learn_cov:
                     dist = self.get_dist(X, self._mu_ks[v_k], indices_k)
                     self._sig_ks[v_k] = ((self._nu * self._beta * self._I_d) + dist) / (self._nu + self._N_k[v_k])
-                inv_cov = np.linalg.inv(self._sig_ks[v_k])
-                mu_cov = np.linalg.inv(self._N_k[v_k] * inv_cov + self._inv_sig * self._I_d)
-                m_k = mu_cov @ (inv_cov @ x_k + self._inv_sig * self._mu_prior)
+                    inv_cov = np.linalg.inv(self._sig_ks[v_k])
+                    mu_cov = np.linalg.inv(self._N_k[v_k] * inv_cov + self._inv_sig * self._I_d)
+                    m_k = mu_cov @ (inv_cov @ x_k + self._inv_sig * self._mu_prior)
+                else:
+                    mu_cov_nom = self._inv_beta * x_k + self._inv_sig * self._mu_prior
+                    mu_cov_denom = self._N_k[v_k] * self._inv_beta + self._inv_sig
+                    mu_cov = (1/ mu_cov_denom) * self._I_d
+                    m_k = mu_cov_nom / mu_cov_denom
                 self._mu_ks[v_k] = np.random.multivariate_normal(m_k, mu_cov)
         return self
         #
@@ -235,52 +243,53 @@ if __name__ == '__main__':
     k, N = 5, 1000
     X = gmm_data(N, k)
 
-    for i in range(5):
-        gmm = BayesianGMM(k=50, alpha=.01, mu_0=np.zeros(2), sig_0=.5, nu=5, beta=.5)
-        gmm.gibbs_fit(X, T=100)
+    # for i in range(5):
+    #     gmm = BayesianGMM(k=50, alpha=.01, mu_0=np.zeros(2), sig_0=.5, nu=5, beta=.5)
+    #     gmm.gibbs_fit(X, T=100)
+    #
+    #     # plot a histogram of the mixture probabilities (in descending order)
+    #     pi = gmm._pi  # mixture probabilities from the fitted GMM
+    #     plt.figure()
+    #     plt.bar(np.arange(len(pi)), np.sort(pi)[::-1])
+    #     plt.ylabel(r'$\pi_k$')
+    #     plt.xlabel('cluster number')
+    #     plt.title(f'histogram #{i}')
+    #     plt.show()
+    #
+    #     # plot the fitted 2D GMM
+    #     plot_2D_gmm(X, gmm._mu_ks, gmm._sig_ks,
+    #                 gmm.cluster(X))  # the second input are the means and the third are the covariances
 
-        # plot a histogram of the mixture probabilities (in descending order)
-        pi = gmm._pi  # mixture probabilities from the fitted GMM
-        plt.figure()
-        plt.bar(np.arange(len(pi)), np.sort(pi)[::-1])
-        plt.ylabel(r'$\pi_k$')
-        plt.xlabel('cluster number')
-        plt.title(f'histogram #{i}')
-        plt.show()
+    # ---------------------- questions 6-7
+    # load image data
+    MNIST, labs = load_MNIST()
+    # flatten the images
+    ims = MNIST.copy().reshape(MNIST.shape[0], -1)
+    gmm = BayesianGMM(k=500, alpha=1, mu_0=0.5 * np.ones(ims.shape[1]), sig_0=.1, nu=1, beta=.25, learn_cov=False)
+    gmm.gibbs_fit(ims, 100)
 
-        # plot the fitted 2D GMM
-        plot_2D_gmm(X, gmm._mu_ks, gmm._sig_ks, gmm.cluster(X))  # the second input are the means and the third are the covariances
+    # plot a histogram of the mixture probabilities (in descending order)
+    pi = gmm._pi  # mixture probabilities from the fitted GMM
+    plt.figure()
+    plt.bar(np.arange(len(pi)), np.sort(pi)[::-1])
+    plt.ylabel(r'$\pi_k$')
+    plt.xlabel('cluster number')
+    plt.show()
 
-    # # ---------------------- questions 6-7
-    # # load image data
-    # MNIST, labs = load_MNIST()
-    # # flatten the images
-    # ims = MNIST.copy().reshape(MNIST.shape[0], -1)
-    # gmm = BayesianGMM(k=500, alpha=1, mu_0=0.5 * np.ones(ims.shape[1]), sig_0=.1, nu=1, beta=.25, learn_cov=False)
-    # gmm.gibbs_fit(ims, 100)
-    #
-    # # plot a histogram of the mixture probabilities (in descending order)
-    # pi = None  # mixture probabilities from the fitted GMM
-    # plt.figure()
-    # plt.bar(np.arange(len(pi)), np.sort(pi)[::-1])
-    # plt.ylabel(r'$\pi_k$')
-    # plt.xlabel('cluster number')
-    # plt.show()
-    #
-    # # find the clustering of the images to different Gaussians
-    # cl = gmm.cluster(ims)
-    # clusters = np.unique(cl)
-    # print(f'{len(clusters)} clusters used')
-    # # calculate the purity of each of the clusters
-    # purities = np.array([cluster_purity(labs[cl == k]) for k in clusters])
-    # purity_inds = np.argsort(purities)
-    #
-    # # plot 25 images from each of the clusters with the top 5 purities
-    # for ind in purity_inds[-5:]:
-    #     clust = clusters[ind]
-    #     plot_ims(MNIST[cl == clust][:25].astype(float), f'cluster {clust}: purity={purities[ind]:.2f}')
-    #
-    # # plot 25 images from each of the clusters with the bottom 5 purities
-    # for ind in purity_inds[:5]:
-    #     clust = clusters[ind]
-    #     plot_ims(MNIST[cl == clust][:25].astype(float), f'cluster {clust}: purity={purities[ind]:.2f}')
+    # find the clustering of the images to different Gaussians
+    cl = gmm.cluster(ims)
+    clusters = np.unique(cl)
+    print(f'{len(clusters)} clusters used')
+    # calculate the purity of each of the clusters
+    purities = np.array([cluster_purity(labs[cl == k]) for k in clusters])
+    purity_inds = np.argsort(purities)
+
+    # plot 25 images from each of the clusters with the top 5 purities
+    for ind in purity_inds[-5:]:
+        clust = clusters[ind]
+        plot_ims(MNIST[cl == clust][:25].astype(float), f'cluster {clust}: purity={purities[ind]:.2f}')
+
+    # plot 25 images from each of the clusters with the bottom 5 purities
+    for ind in purity_inds[:5]:
+        clust = clusters[ind]
+        plot_ims(MNIST[cl == clust][:25].astype(float), f'cluster {clust}: purity={purities[ind]:.2f}')
