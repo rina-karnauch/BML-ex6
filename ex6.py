@@ -110,12 +110,6 @@ class BayesianGMM:
                                                                         None]
         log_likelihood_1 = -.5 * (self._d * np.log(2 * np.pi * self._beta) + (self._inv_beta) * dist)
         log_likelihood = np.log(self._pi)[:, None] + log_likelihood_1
-        # ----
-        # if self._learn_cov: log_likelihood = np.array( [multivariate_normal.logpdf(X, mean=self._mu_ks[v_k],
-        # cov=self._sig_ks[v_k]) for v_k in range(self._k)]) else: common_value = self._d * np.log(2 * np.pi *
-        # self._beta) x_k = np.array([X - mu_k for mu_k in self._mu_ks]) inner = np.array([np.linalg.norm(x,
-        # axis=1) ** 2 for x in x_k]) log_likelihood = -.5 * ( common_value + self._inv_beta * inner) # L[j,
-        # i] : log likelihood of cluster j of point i
         return log_likelihood
 
     def cluster(self, X: np.ndarray) -> np.ndarray:
@@ -128,21 +122,6 @@ class BayesianGMM:
         log_likelihood = self.log_likelihood(X)
         clusters = np.argmax(log_likelihood, axis=0)
         return clusters
-
-    # def get_mu_ks(self, cov_k):
-    #     if self._learn_cov:
-    #         inv_sig = np.array([np.linalg.inv(cov_k[v_k]) for v_k in range(self._k)])
-    #         cov = np.array([self._N_k[v_k] * inv_sig[v_k] + self._sig_prior * self._I_d for v_k in range(self._k)])
-    #         cov = np.array([np.linalg.inv(m) for m in cov])
-    #         mu = np.array(
-    #             [cov[v_k] @ ((inv_sig[v_k] @ self._sum_X_per_k[v_k]) + (self._inv_sig * self._mu_prior)) for v_k in
-    #              range(self._k)])
-    #     else:
-    #         denominator_arr = np.array([1 / (n_k * self._inv_beta + self._inv_sig) for n_k in self._N_k])
-    #         cov = np.array([self._I_d * denom for denom in denominator_arr])
-    #         mu = self._inv_beta * self._sum_X_per_k + (self._inv_sig * self._mu_prior)
-    #         mu = np.array([mu[i] / denominator_arr[i] for i in range(self._k)])
-    #     return np.array([np.random.multivariate_normal(mu[v_k], cov[v_k]) for v_k in range(self._k)])
 
     def get_dist(self, X, mu, indices):
         x_indices = X[indices]
@@ -162,7 +141,6 @@ class BayesianGMM:
         """
         self._N = X.shape[0]
         for t in range(T):
-            print(f't:{t}')
             self._L = self.log_likelihood(X)
             self._q = np.exp(self._L - logsumexp(self._L, axis=0)[None, :]).T
             self._z_t = np.random.default_rng().multinomial(1, self._q, size=self._N).argmax(axis=-1)
@@ -184,58 +162,36 @@ class BayesianGMM:
                     m_k = mu_cov_nom / mu_cov_denom
                 self._mu_ks[v_k] = np.random.multivariate_normal(m_k, mu_cov)
         return self
-        #
-        # for t in range(T):
-        #     self._L = self.log_likelihood(X)
-        #     self._q = np.exp(self._L - logsumexp(self._L, axis=0)[None, :])
-        #     self._z_t = np.random.default_rng().multinomial(1, self._q.T, size=self._N).argmax(axis=-1)
-        #     indices_per_k = [np.where(self._z_t == v_k) for v_k in range(self._k)]
-        #     self._sum_X_per_k = np.array([np.sum(X[indices], axis=0) for indices in indices_per_k])
-        #     self._N_k = np.array([np.count_nonzero(self._z_t == v_k) for v_k in range(self._k)])
-        #     self._pi = np.random.dirichlet(alpha=self._alpha + self._N_k)
-        #     # self._sig_ks = (self._nu * self._I_d * self._beta + sub_inner @ sub_inner.T) / self._nu + self._N_k
-        #     if self._learn_cov:
-        #         sig_common = self._nu + self._I_d * self._beta
-        #         sig_array_denominator = self._nu + self._N_k
-        #         inner_array = [X[indices] for indices in indices_per_k]
-        #         inner_array_minus_mu_ks = [inner_array[v_k] - self._mu_ks[v_k] for v_k in range(self._k)]
-        #         inner_value = [np.zeros(self._d) if i_v_k.shape[0] == 0 else i_v_k.T @ i_v_k for i_v_k in
-        #                        inner_array_minus_mu_ks]
-        #         self._sig_ks = np.array(
-        #             [(sig_common + inner_value[v_k]) / sig_array_denominator[v_k] for v_k
-        #              in range(self._k)])
-        #     self._mu_ks = self.get_mu_ks(self._sig_ks)
-
 
 if __name__ == '__main__':
-    # # ------------------------------------------------------ section 2 - Robust Regression
-    # # ---------------------- question 2
-    # # load the outlier data
-    # x, y = outlier_data(50)
-    # # init BLR model that will be used to fit the data
-    # mdl = BayesianLinearRegression(theta_mean=np.zeros(2), theta_cov=np.eye(2), sample_noise=0.15)
-    #
-    # # sample using the Gibbs sampling algorithm and plot the results
-    # plt.figure()
-    # plt.scatter(x, y, 15, 'k', alpha=.75)
-    # xx = np.linspace(-0.2, 5.2, 100)
-    # for t in [0, 1, 5, 10, 25]:
-    #     samp, outliers = outlier_regression(mdl, x, y, T=t, p_out=0.1, mu_o=4, sig_o=2)
-    #     plt.plot(xx, samp.predict(xx), lw=2, label=f'T={t}')
-    # plt.xlim([np.min(xx), np.max(xx)])
-    # plt.legend()
-    # plt.show()
-    #
-    # # ---------------------- question 3
-    # # load the images to use for classification
-    # N = 1000
-    # ims, labs = load_dogs_vs_frogs(N)
-    # # define BLR model that should be used to fit the data
-    # mdl = BayesianLinearRegression(sample_noise=0.001, kernel_function=poly_kernel(2))
-    # # use Gibbs sampling to sample model and outliers
-    # samp, outliers = outlier_regression(mdl, ims, labs, p_out=0.01, T=50, mu_o=0, sig_o=.5)
-    # # plot the outliers
-    # plot_ims(ims[outliers], title='outliers')
+    # ------------------------------------------------------ section 2 - Robust Regression
+    # ---------------------- question 2
+    # load the outlier data
+    x, y = outlier_data(50)
+    # init BLR model that will be used to fit the data
+    mdl = BayesianLinearRegression(theta_mean=np.zeros(2), theta_cov=np.eye(2), sample_noise=0.15)
+
+    # sample using the Gibbs sampling algorithm and plot the results
+    plt.figure()
+    plt.scatter(x, y, 15, 'k', alpha=.75)
+    xx = np.linspace(-0.2, 5.2, 100)
+    for t in [0, 1, 5, 10, 25]:
+        samp, outliers = outlier_regression(mdl, x, y, T=t, p_out=0.1, mu_o=4, sig_o=2)
+        plt.plot(xx, samp.predict(xx), lw=2, label=f'T={t}')
+    plt.xlim([np.min(xx), np.max(xx)])
+    plt.legend()
+    plt.show()
+
+    # ---------------------- question 3
+    # load the images to use for classification
+    N = 1000
+    ims, labs = load_dogs_vs_frogs(N)
+    # define BLR model that should be used to fit the data
+    mdl = BayesianLinearRegression(sample_noise=0.001, kernel_function=poly_kernel(2))
+    # use Gibbs sampling to sample model and outliers
+    samp, outliers = outlier_regression(mdl, ims, labs, p_out=0.01, T=50, mu_o=0, sig_o=.5)
+    # plot the outliers
+    plot_ims(ims[outliers], title='outliers')
 
     # ------------------------------------------------------ section 3 - Bayesian GMM
     # ---------------------- question 5
@@ -243,22 +199,24 @@ if __name__ == '__main__':
     k, N = 5, 1000
     X = gmm_data(N, k)
 
-    # for i in range(5):
-    #     gmm = BayesianGMM(k=50, alpha=.01, mu_0=np.zeros(2), sig_0=.5, nu=5, beta=.5)
-    #     gmm.gibbs_fit(X, T=100)
-    #
-    #     # plot a histogram of the mixture probabilities (in descending order)
-    #     pi = gmm._pi  # mixture probabilities from the fitted GMM
-    #     plt.figure()
-    #     plt.bar(np.arange(len(pi)), np.sort(pi)[::-1])
-    #     plt.ylabel(r'$\pi_k$')
-    #     plt.xlabel('cluster number')
-    #     plt.title(f'histogram #{i}')
-    #     plt.show()
-    #
-    #     # plot the fitted 2D GMM
-    #     plot_2D_gmm(X, gmm._mu_ks, gmm._sig_ks,
-    #                 gmm.cluster(X))  # the second input are the means and the third are the covariances
+    for i in range(5):
+        gmm = BayesianGMM(k=50, alpha=.01, mu_0=np.zeros(2), sig_0=.5, nu=5, beta=.5)
+        gmm.gibbs_fit(X, T=100)
+
+        # plot a histogram of the mixture probabilities (in descending order)
+        pi = gmm._pi  # mixture probabilities from the fitted GMM
+        s = np.count_nonzero(pi > 0.0001)
+        print(f'{i}: had {s} clusters better then 0.0001')
+        plt.figure()
+        plt.bar(np.arange(len(pi)), np.sort(pi)[::-1])
+        plt.ylabel(r'$\pi_k$')
+        plt.xlabel('cluster number')
+        plt.title(f'histogram #{i}')
+        plt.show()
+
+        # plot the fitted 2D GMM
+        plot_2D_gmm(X, gmm._mu_ks, gmm._sig_ks,
+                    gmm.cluster(X))  # the second input are the means and the third are the covariances
 
     # ---------------------- questions 6-7
     # load image data
